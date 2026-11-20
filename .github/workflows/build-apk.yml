@@ -1,1 +1,45 @@
+name: Build APK
 
+# Jalan otomatis tiap ada file yang di-upload, atau manual lewat tab Actions -> Run workflow.
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.3
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-24.04
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        run: |
+          mkdir -v -p ~/.local/share/godot/export_templates/
+          mkdir -v -p ~/.config/
+          mv /root/.config/godot ~/.config/godot
+          mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+
+      - name: Build APK (debug-signed, siap install)
+        run: |
+          # Cari folder yang berisi project.godot (aman walau di-upload ke dalam subfolder)
+          PROJECT_FILE=$(find . -name project.godot -not -path './.git/*' | head -n 1)
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          echo "Project ada di: $PROJECT_DIR"
+          mkdir -v -p build
+          OUT="$(readlink -f build)/BurgerWrapRush.apk"
+          cd "$PROJECT_DIR"
+          godot --headless --verbose --import || true
+          godot --headless --verbose --export-debug "Android" "$OUT"
+          ls -l "$OUT"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BurgerWrapRush-apk
+          path: build/BurgerWrapRush.apk
